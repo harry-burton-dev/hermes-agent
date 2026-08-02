@@ -9,6 +9,7 @@ which has provider-specific conditionals for max_tokens defaults,
 reasoning configuration, temperature handling, and extra_body assembly.
 """
 
+import os
 from typing import Any, Dict
 
 from agent.lmstudio_reasoning import resolve_lmstudio_effort
@@ -615,6 +616,23 @@ class ChatCompletionsTransport(ProviderTransport):
         additions = params.get("extra_body_additions")
         if additions:
             extra_body.update(additions)
+
+        # Propagate session_id into extra_body.metadata so the Langfuse
+        # callback (configured on the LiteLLM side) groups this call's trace
+        # into the conversation's Session replay. setdefault so an explicit
+        # request override below still wins, and so any metadata a caller
+        # already set here is preserved rather than clobbered.
+        session_id = params.get("session_id")
+        project_slug = os.environ.get("HERMES_LANGFUSE_PROJECT_SLUG", "").strip()
+        if session_id or project_slug:
+            metadata = extra_body.get("metadata")
+            if not isinstance(metadata, dict):
+                metadata = {}
+            if session_id:
+                metadata.setdefault("session_id", str(session_id)[:199])
+            if project_slug:
+                metadata.setdefault("project_slug", project_slug[:199])
+            extra_body["metadata"] = metadata
 
         # Request overrides (user config)
         overrides = params.get("request_overrides")

@@ -537,3 +537,20 @@ class TestChatCompletionsGeminiNativeExtraBodyStrip:
         eb = kw.get("extra_body")
         assert eb and "tags" in eb
 
+    def test_project_slug_is_added_to_langfuse_metadata(self, monkeypatch, transport):
+        from providers import get_provider_profile
+
+        monkeypatch.setenv("HERMES_LANGFUSE_PROJECT_SLUG", "project-operating-system")
+        kw = transport.build_kwargs(
+            "gpt-5.6-terra",
+            [{"role": "user", "content": "hi"}],
+            None,
+            provider_profile=get_provider_profile("custom"),
+            session_id="s1",
+        )
+
+        assert kw["extra_body"]["metadata"] == {
+            "session_id": "s1",
+            "project_slug": "project-operating-system",
+        }
+
